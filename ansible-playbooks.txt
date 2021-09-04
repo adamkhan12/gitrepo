@@ -1,0 +1,202 @@
+Ansible:
+
+create ec2-instance (3)
+
+
+1. Install Ansible in controller
+2. create an specific user to control all servers
+3. make password less authentication
+4. copy public key from master to worker machines in authorized_keys
+4. ssh-keygen   and   ssh-copy-id   to client servers
+5. /etc/hosts  update controller and client servers details
+6. /etc/ansible/hosts  update client server details in controller
+
+
+ansible all -m ping
+ansible all -m ping -u ec2-user
+ansible webservers -m setup | less
+
+
+(sample.yml)
+--- #webserver
+- hosts: all
+  remote_user: ec2-user
+  become: true
+  tasks:
+    - name: Installing httpd server
+      yum: name=httpd state=installed
+
+    - name: copy index file
+      copy: src=index.html dest=/var/www/html/index.html
+
+    - name: starting httpd service
+      service: name=httpd state=started
+
+
+(vars.yml)
+--- #webserver
+- hosts: all
+  remote_user: ec2-user
+  become: true
+  vars:
+          pkg: httpd
+  tasks:
+    - name: Installing {{pkg}} server
+      yum: name={{pkg}} state=installed
+
+    - name: copy index file
+      copy: src=index.html dest=/var/www/html/index.html
+
+    - name: starting {{pkg}} service
+      service: name={{pkg}} state=started
+
+
+
+
+ansible - aws
+
+ansible-galaxy collection install amazon.aws -p .
+
+
+---------------------------------------------------------------------------
+variables.yml
+
+--- #webserver
+- hosts: webservers
+  remote_user: ec2-user
+  become: true
+  vars:
+     pkg: httpd
+  tasks:
+    - name: Installing {{pkg}} service
+      yum: name={{pkg}} state=installed
+    - name: copying of index.html file
+      copy: src=index.html dest=/var/www/html/index.html
+    - name: starting {{pkg}} service
+      service: name={{pkg}} state=started
+
+
+----------------------------------------------------------------------------
+variables_files.yml
+
+
+--- #webserver
+- hosts: webservers
+  remote_user: ec2-user
+  become: true
+  vars_files:
+      - abc.yml
+  tasks:
+    - name: Installing {{pkg}} service
+      yum: name={{pkg}} state=installed
+    - name: copying of index.html file
+      copy: src=index.html dest=/var/www/html/index.html
+    - name: starting {{pkg}} service
+      service: name={{pkg}} state=started
+	  
+-----------------------------------------------------------------------------
+vars_prompt:
+
+--- #webserver
+- hosts: webservers
+  remote_user: ec2-user
+  become: true
+  vars_prompt:
+        - name: pkg2
+          prompt: Enter package name
+  tasks:
+    - name: Installing {{pkg2}} service
+      yum: name= {{pkg2}} state=installed
+	  
+---------------------------------------------------------------------------------
+privte:no
+
+
+--- #webserver
+- hosts: webservers
+  remote_user: ec2-user
+  become: true
+  vars_prompt:
+        - name: pkg2
+          prompt: Enter package name
+          private: no
+  tasks:
+    - name: Installing {{pkg2}} service
+      yum: name= {{pkg2}} state=installed
+
+---------------------------------------------------------------------------------------
+Handlers
+
+
+--- #webserver
+- hosts: webservers
+  remote_user: ec2-user
+  become: true
+  tasks:
+    - name: Installing httpd service
+      yum: name=httpd state=installed
+    - name: copying of index.html file
+      copy: src=index.html dest=/var/www/html/index.html
+      notify: restarting httpd service
+    - name: starting httpd service
+      service: name=httpd state=started
+  handlers:
+     - name: restarting httpd service
+       service: name=httpd state=restarted
+
+
+--------------------------------------------------------------------------------------
+ignore_errors
+
+
+--- #webserver
+- hosts: webservers
+  remote_user: ec2-user
+  become: true
+  tasks:
+    - name: Installing httpd service
+      yum: name=httpd state=installed
+    - name: Installing abc123 service
+      yum: name=abc123 state=installed
+      ignore_errors: true
+
+
+-----------------------------------------------------------------------------------------
+Loops:
+
+
+--- #webserver
+- hosts: webservers
+  remote_user: ec2-user
+  become: true
+  tasks:
+    - name: Installing of items service
+      yum: name={{item}} state=installed
+      with_items:
+            - httpd
+            - curl
+            - telnet
+            - unzip
+
+
+----------------------------------------------------------------------------------------
+command.yml
+
+--- #webserver
+- hosts: webservers
+  remote_user: ec2-user
+  become: true
+  tasks:
+    - name: Installing httpd service
+      command: yum install -y httpd
+    - name: copying file
+      shell: echo "Hello world 123" > /var/www/html/index.html
+    - name: service httpd start
+      raw: service httpd start
+
+
+----------------------------------------------------------------------------------------
+
+
+	  
+	  
