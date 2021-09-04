@@ -1,2 +1,2 @@
 Line1
-file2
+This is file2
